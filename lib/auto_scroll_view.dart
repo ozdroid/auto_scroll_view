@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import 'image_item.dart';
 
@@ -12,6 +13,7 @@ class AutoScrollView extends StatefulWidget {
   final double perferSise;
   final List<String> covers;
   final double speed;
+  final Color placeHolderColor;
 
   const AutoScrollView({
     Key? key,
@@ -19,6 +21,7 @@ class AutoScrollView extends StatefulWidget {
     this.aspectRatio = 1.6,
     this.perferSise = 100,
     this.speed = 0.6,
+    this.placeHolderColor = const Color(0xFF505050),
     required this.covers,
   }) : super(key: key);
 
@@ -41,21 +44,23 @@ class _AutoScrollViewState extends State<AutoScrollView> {
   int heightCount = 0;
   int widthCount = 0;
 
-  Timer? _timer;
+  // Timer? _timer;
+  Ticker? _ticker;
 
   Orientation? currentOrientation;
 
   @override
   void initState() {
-    _timer = Timer.periodic(const Duration(milliseconds: 40), (timer) async {
-      await _updateList();
-    });
+    // _timer = Timer.periodic(const Duration(milliseconds: 40), (timer) async {
+    //   await _updateList();
+    // });
     super.initState();
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    // _timer?.cancel();
+    _ticker?.dispose();
     super.dispose();
   }
 
@@ -92,18 +97,31 @@ class _AutoScrollViewState extends State<AutoScrollView> {
         var postionX = j * (itemWidth + (widget.gapSpace ?? 0));
 
         var image = ImageItem(
-            postionX: postionX, postionY: postionY, imagePath: _getCOver());
+          postionX: postionX,
+          postionY: postionY,
+          imagePath: _getCOver(),
+          height: itemHeight,
+          width: itemWidth,
+        );
+        image.loadImage();
         itemList.add(image);
       }
       imgList.add(itemList);
     }
+
+    _ticker = Ticker(_handleStarTick)..start();
   }
 
-  _updateList() async {
+  _handleStarTick(Duration elapsed) {
     if (rootHeight == 0) {
       return;
     }
+    setState(() {
+      _updateList();
+    });
+  }
 
+  _updateList() {
     for (var j = 0; j < imgList.length; j++) {
       List<ImageItem> itemList = imgList[j];
 
@@ -117,13 +135,18 @@ class _AutoScrollViewState extends State<AutoScrollView> {
             itemList.last.postionY + (itemHeight + (widget.gapSpace ?? 0));
         var postionX = j * (itemWidth + (widget.gapSpace ?? 0));
         var image = ImageItem(
-            postionX: postionX, postionY: postionY, imagePath: _getCOver());
+          postionX: postionX,
+          postionY: postionY,
+          imagePath: _getCOver(),
+          height: itemHeight,
+          width: itemWidth,
+        );
+        image.loadImage();
         itemList.removeAt(0);
         itemList.add(image);
         debugPrint("Add Image");
       }
     }
-    setState(() {});
   }
 
   @override
@@ -134,28 +157,72 @@ class _AutoScrollViewState extends State<AutoScrollView> {
       return Center(
         child: Stack(
           alignment: Alignment.topLeft,
-          children: _buildList(),
+          children: [
+            CustomPaint(
+              painter: CoverPainter(imgList, widget.placeHolderColor),
+              size: Size(rootWidth, rootHeight),
+            ),
+          ],
         ),
       );
     });
   }
 
-  List<Widget> _buildList() {
-    List<Widget> resultList = List<Widget>.empty(growable: true);
+  // List<Widget> _buildList() {
+  //   List<Widget> resultList = List<Widget>.empty(growable: true);
+  //   for (var itemList in imgList) {
+  //     for (var item in itemList) {
+  //       resultList.add(Positioned(
+  //         top: item.postionY,
+  //         left: item.postionX,
+  //         height: itemHeight,
+  //         width: itemWidth,
+  //         child: CachedNetworkImage(
+  //           fit: BoxFit.cover,
+  //           imageUrl: item.imagePath,
+  //         ),
+  //       ));
+  //     }
+  //   }
+  //   return resultList;
+  // }
+}
+
+class CoverPainter extends CustomPainter {
+  final List<List<ImageItem>> imgList;
+  final Color placeHolderColor;
+
+  CoverPainter(
+    this.imgList,
+    this.placeHolderColor,
+  );
+
+  @override
+  void paint(Canvas canvas, Size size) {
     for (var itemList in imgList) {
       for (var item in itemList) {
-        resultList.add(Positioned(
-          top: item.postionY,
-          left: item.postionX,
-          height: itemHeight,
-          width: itemWidth,
-          child: CachedNetworkImage(
-            fit: BoxFit.cover,
-            imageUrl: item.imagePath,
-          ),
-        ));
+        if (item.imageData != null) {
+          canvas.drawImageRect(
+              item.imageData!,
+              Rect.fromLTWH(0, 0, item.imageData!.width.toDouble(),
+                  item.imageData!.height.toDouble()),
+              Rect.fromLTWH(
+                  item.postionX, item.postionY, item.width, item.height),
+              Paint());
+        } else {
+          Rect darwRect = Rect.fromLTWH(
+              item.postionX, item.postionY, item.width, item.height);
+          RRect rrect =
+              RRect.fromRectAndRadius(darwRect, const Radius.circular(0.0));
+          //canvas.clipRRect(rrect);
+          canvas.drawRRect(rrect, Paint()..color = placeHolderColor);
+        }
       }
     }
-    return resultList;
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return true;
   }
 }
