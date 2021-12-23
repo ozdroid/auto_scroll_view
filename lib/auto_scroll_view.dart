@@ -44,39 +44,35 @@ class _AutoScrollViewState extends State<AutoScrollView> {
   int heightCount = 0;
   int widthCount = 0;
 
-  // Timer? _timer;
   Ticker? _ticker;
 
   Orientation? currentOrientation;
 
   @override
   void initState() {
-    // _timer = Timer.periodic(const Duration(milliseconds: 40), (timer) async {
-    //   await _updateList();
-    // });
     super.initState();
   }
 
   @override
   void dispose() {
-    // _timer?.cancel();
     _ticker?.dispose();
     super.dispose();
   }
 
   _getCOver() {
-    // coverIndex = Random().nextInt(randomCover.length);
     coverIndex++;
     coverIndex = coverIndex % widget.covers.length;
-    debugPrint("totle --->$coverIndex --->" + widget.covers.length.toString());
     return widget.covers[coverIndex];
   }
 
   _initList(context, contransnts) {
     var newOrientation = MediaQuery.of(context).orientation;
-    if (rootHeight != 0 || currentOrientation == newOrientation) {
-      return;
+    if (currentOrientation == newOrientation) {
+      if (rootHeight != 0) {
+        return;
+      }
     }
+    currentOrientation = newOrientation;
     rootHeight = contransnts.maxHeight;
     rootWidth = contransnts.maxWidth;
     widthCount = rootWidth ~/ widget.perferSise;
@@ -108,7 +104,7 @@ class _AutoScrollViewState extends State<AutoScrollView> {
       }
       imgList.add(itemList);
     }
-
+    _ticker?.dispose();
     _ticker = Ticker(_handleStarTick)..start();
   }
 
